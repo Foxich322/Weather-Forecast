@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Прогноз погоды</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+  <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyByHYvELC4dz-LnLwR9Q7rhj7R8hZIet64&libraries=places"></script>
+  <style>
+  html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+#map-canvas {
+  width: 70%;
+  height: 70%;
+  margin: 0 auto 0 auto;
+}
+.gm-style-iw {
+  text-align: center;
+}
+#map {
+  height: 100%;
+}
+#description {
+  font-family: Roboto;
+  font-size: 15px;
+  font-weight: 300;
+}
+
+#infowindow-content .title {
+  font-weight: bold;
+}
+
+#infowindow-content {
+  display: none;
+}
+
+#map #infowindow-content {
+  display: inline;
+}
+
+
+
+#cityName {
+  background-color: #fff;
+  font-family: Roboto;
+  font-size: 15px;
+  font-weight: 300;
+  margin-left: 12px;
+  padding: 0 11px 0 13px;
+  text-overflow: ellipsis;
+  width: 400px;
+}
+
+#cityName:focus {
+  border-color: #4d90fe;
+}
+
+#title {
+  color: #fff;
+  background-color: #4d90fe;
+  font-size: 25px;
+  font-weight: 500;
+  padding: 6px 12px;
+}
+#target {
+  width: 345px;
+}
+
+  </style>
+
+<script>
+
+var cityName;
+var mode;
+var metric = true;
+var map;
+
+
+function displayHourly()
+{
+	var xmlDoc;
+	var txt;
+	mode = "hourlyWeather";
+
+	cityName=document.getElementById("cityName").value;
+
+	var xhttp = new XMLHttpRequest();
+
+	xhttp.onreadystatechange = function() 
+	{
+		if (xhttp.readyState == 4 && xhttp.status == 200) 
+		{
+			xmlDoc= xhttp.responseXML;
+
+			var x = xmlDoc.getElementsByTagName('time');
+			var i;
+
+			for (i = 0; i < x.length; i++) 
+			{ 
+			txt += "<tr>";
+
+			txt += "<td>" + x[i].getAttribute('from') + " to " + x[i].getAttribute('to') + "</td>";
+
+			txt += "<td>" + xmlDoc.getElementsByTagName("temperature")[i].getAttribute("value") + "</td>";
+
+			txt += "<td>"+xmlDoc.getElementsByTagName("windSpeed")[i].getAttribute("mps") + " " +xmlDoc.getElementsByTagName("windDirection")[i].getAttribute("code") + "</td>";
+
+			txt += "<td>" + xmlDoc.getElementsByTagName("humidity")[i].getAttribute("value") + xmlDoc.getElementsByTagName("humidity")[i].getAttribute("unit") + "</td>";
+
+			txt += "<td>" + xmlDoc.getElementsByTagName("symbol")[i].getAttribute("name") + "</td>";
+
+			txt += "<td>" + displayPicture(xmlDoc.getElementsByTagName("symbol")[i].getAttribute("name")) + "</td>";
+
+			txt += "</tr>";
+
+			
+			}
+			
+
+			document.getElementById("tableID").innerHTML = txt; 
+			displayBackgroundPicture();
+		}
+	};
+
+	if(metric)
+	{
+		xhttp.open("GET", "http://api.openweathermap.org/data/2.5/forecast?q="+cityName+"&mode=xml&appid=bf79a76acd65607bbdb832c68da3a472&units=metric", true);
+		xhttp.send();
+	}
+}
+
+function displayBackgroundPicture(string)
+{
+document.body.style.backgroundImage = "url('bg.jpg')";
+document.body.style.backgroundSize = "cover";
+}
+
+
+function displayPicture(string)
+{
+if(string.toLowerCase().indexOf('clear') >= 0)
+{
+return "<img class=\"img-responsive\" src=\"ncEEjypai.gif\" alt=\"Chania\" width=\"100\" height=\"100\">";
+}
+else if(string.toLowerCase().indexOf('cloud') >= 0)
+{
+return "<img class=\"img-responsive\" src=\"cloud-clip-art-rgtaylor_csc_net_wan_cloud.png\" alt=\"Chania\" width=\"100\" height=\"100\">";
+}
+else if(string.toLowerCase().indexOf('rain') >= 0)
+{
+return "<img class=\"img-responsive\" src=\"rain-clip-art-RcdRg7eei.png\" alt=\"Chania\" width=\"100\" height=\"100\">";
+}
+else if(string.toLowerCase().indexOf('snow') >= 0)
+{
+return "<img class=\"img-responsive\" src=\"snowflakes_PNG7545.png\" alt=\"Chania\" width=\"100\" height=\"100\">";
+}
+}
+
+function clean()
+{
+ document.getElementById("cityName").value="";
+}
+
+
+
+function initialize() {
+    var mapOptions = {
+      center: {lat: 13.7563310, lng: 100.5017650},
+      zoom: 4
+    };
+
+    map = new google.maps.Map(document.getElementById('map-canvas'),
+        mapOptions);
+
+    
+      var input = document.getElementById('cityName');
+      var searchBox = new google.maps.places.SearchBox(input);
+      map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+
+    
+    map.addListener('bounds_changed', function() {
+      searchBox.setBounds(map.getBounds());
+    });
+
+    var markers = [];
+    searchBox.addListener('places_changed', function() {
+      var places = searchBox.getPlaces();
+
+      if (places.length == 0) {
+        return;
+      }
+
+      
+      markers.forEach(function(marker) {
+        marker.setMap(null);
+      });
+      markers = [];
+
+      
+      var bounds = new google.maps.LatLngBounds();
+      places.forEach(function(place) {
+        if (!place.geometry) {
+          console.log("Returned place contains no geometry");
+          return;
+        }
+        var icon = {
+          url: place.icon,
+          size: new google.maps.Size(71, 71),
+          origin: new google.maps.Point(0, 0),
+          anchor: new google.maps.Point(17, 34),
+          scaledSize: new google.maps.Size(25, 25)
+        };
+
+        
+        markers.push(new google.maps.Marker({
+          map: map,
+          icon: icon,
+          title: place.name,
+          position: place.geometry.location
+        }));
+
+        if (place.geometry.viewport) {
+          bounds.union(place.geometry.viewport);
+        } else {
+          bounds.extend(place.geometry.location);
+        }
+      });
+      map.fitBounds(bounds);
+    });
+    
+  
+    
+    map.data.addListener('click', function(event) {
+      
+      infowindow.setOptions({
+          position:{
+            lat: event.latLng.lat(),
+            lng: event.latLng.lng()
+          },
+          pixelOffset: {
+            width: 0,
+            height: -15
+          }
+        });
+      infowindow.open(map);
+    });
+  }
+
+
+  var Geo = function () {
+    if (typeof coord.Lon == 'number'){
+      var feature = {
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [coord.Lon, coord.Lat]
+        }
+      };
+    }else{
+      var feature = {
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [coord.lon, coord.lat]
+        }
+      };
+    }
+
+
+    map.data.setStyle(function(feature) {
+      return {
+        icon: {
+          url: feature.getProperty('icon'),
+          anchor: new google.maps.Point(25, 25)
+        }
+      };
+    });
+
+    
+    return feature;
+  };
+
+  
+  google.maps.event.addDomListener(window, 'load', initialize);
+
+</script>
+</head>
+<body>
+<input id="cityName" class="controls" type="text" placeholder="Введите название города" oninput="displayHourly()">
+  <!-- <div id="map"></div> -->
+<div id="map-canvas"></div>
+
+<div class="container" style="background: white;">
+  <h2>Прогноз погоды</h2>
+                
+  <div class="table-responsive" >          
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Время</th>
+        <th>Температура</th>
+        <th>Ветер</th>
+        <th>Влажность</th>
+        <th>Погодные условия</th>
+        <th></th>
+      </tr>
+    </thead>
+
+    <tbody id ="tableID">
+    </tbody>
+
+  </table>
+  </div>
+</div>
+<br>
+<br>
+</body>
+</html>	
